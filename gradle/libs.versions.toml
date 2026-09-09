@@ -50,7 +50,7 @@ core-testing = "2.2.0"
 kotlin-test = "2.3.21"       # DO NOT DOWNGRADE — must match `kotlin`.
 turbine = "1.2.1"
 truth = "1.4.5"
-robolectric = "4.16.1"
+robolectric = "4.16.1"  # OK to upgrade. Recheck 2026-Q3: current = latest stable; supports SDK 36 + JDK 21 — fits the project.
 mockk = "1.14.11"
 
 # AndroidX Test (keep runner/rules/core/junit in sync)
