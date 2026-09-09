@@ -108,15 +108,16 @@ class MainActivity : AppCompatActivity() {
         drawerAdapter = AppDrawerAdapter(
             iconLoader = iconLoader,
             scope = lifecycleScope,
-            iconSizePx = (40 * resources.displayMetrics.density).toInt(),
+            iconSizePx = gridIconPx,
             onClick = { app -> launchApp(app.key); hideDrawer() },
             onAddToHome = { }, // panel uses drag, not add-to-first-free-cell
             onItemLongPress = { view, app ->
                 startDrag(view, DragPayload.NewApp(app.key))
                 hideDrawer()
             },
+            itemLayout = R.layout.item_app_grid,
         )
-        drawerPanel.layoutManager = LinearLayoutManager(this)
+        drawerPanel.layoutManager = GridLayoutManager(this, drawerColumns())
         drawerPanel.adapter = drawerAdapter
     }
 
@@ -250,6 +251,11 @@ class MainActivity : AppCompatActivity() {
     // ---- helpers ----
 
     private fun currentColumns(): Int = viewModel.layout.value?.grid?.columns ?: 1
+
+    private fun drawerColumns(): Int {
+        val dp = resources.displayMetrics.widthPixels / resources.displayMetrics.density
+        return (dp / 90f).toInt().coerceIn(3, 6)
+    }
 
     private fun launchApp(key: ComponentKey) {
         val intent = Intent(Intent.ACTION_MAIN)

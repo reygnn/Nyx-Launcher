@@ -25,6 +25,7 @@ class AppDrawerAdapter(
     private val onClick: (LauncherApp) -> Unit,
     private val onAddToHome: (LauncherApp) -> Unit,
     private val onItemLongPress: ((view: View, app: LauncherApp) -> Unit)? = null,
+    private val itemLayout: Int = R.layout.item_app_row,
 ) : RecyclerView.Adapter<AppDrawerAdapter.AppHolder>() {
 
     private var apps: List<LauncherApp> = emptyList()
@@ -36,7 +37,7 @@ class AppDrawerAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppHolder {
         val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_app_row, parent, false)
+            .inflate(itemLayout, parent, false)
         return AppHolder(view)
     }
 
