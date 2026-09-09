@@ -34,11 +34,6 @@
         </activity>
 
         <activity
-            android:name=".home.drawer.AppDrawerActivity"
-            android:exported="false"
-            android:theme="@style/Theme.Nyx" />
-
-        <activity
             android:name=".settings.SettingsActivity"
             android:exported="false"
             android:theme="@style/Theme.Nyx" />
