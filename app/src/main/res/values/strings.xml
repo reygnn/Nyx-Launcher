@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Nyx</string>
+    <string name="folder_default_title">Folder</string>
+    <string name="remove_from_home">Remove from home</string>
+</resources>
