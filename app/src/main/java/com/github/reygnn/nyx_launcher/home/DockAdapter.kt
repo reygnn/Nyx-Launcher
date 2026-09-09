@@ -6,15 +6,18 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.recyclerview.widget.RecyclerView
 import com.github.reygnn.nyx_launcher.R
+import com.github.reygnn.nyx_launcher.data.icon.FolderIconRenderer
 import com.github.reygnn.nyx_launcher.data.icon.IconLoader
 import com.github.reygnn.nyx_launcher.home.model.ComponentKey
+import com.github.reygnn.nyx_launcher.home.model.IconRef
 import com.github.reygnn.nyx_launcher.home.model.ItemId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-/** Horizontal dock row. Tap launches; long-press starts a drag. */
+/** Horizontal dock row of apps/folders. Tap launches/opens; long-press drags. */
 class DockAdapter(
     private val iconLoader: IconLoader,
+    private val folderRenderer: FolderIconRenderer,
     private val scope: CoroutineScope,
     private val iconSizePx: Int,
     private val onLaunch: (ComponentKey) -> Unit,
@@ -22,9 +25,9 @@ class DockAdapter(
     private val onIconLongPress: (view: View, id: ItemId) -> Unit,
 ) : RecyclerView.Adapter<DockAdapter.DockHolder>() {
 
-    private var items: List<HomeCell.Icon> = emptyList()
+    private var items: List<HomeCell> = emptyList()
 
-    fun submit(newItems: List<HomeCell.Icon>) {
+    fun submit(newItems: List<HomeCell>) {
         items = newItems
         notifyDataSetChanged()
     }
@@ -37,21 +40,30 @@ class DockAdapter(
     override fun getItemCount(): Int = items.size
 
     override fun onBindViewHolder(holder: DockHolder, position: Int) {
-        val item = items[position]
+        val cell = items[position]
         val token = ++holder.bindToken
         holder.icon.setImageDrawable(null)
-        holder.itemView.setOnClickListener {
-            val launch = item.launch
-            if (launch != null) onLaunch(launch) else onOpenFolder(item.id)
-        }
-        holder.itemView.setOnLongClickListener {
-            onIconLongPress(holder.itemView, item.id)
-            true
-        }
-        scope.launch {
-            val bitmap = runCatching { iconLoader.bitmap(item.ref, iconSizePx) }.getOrNull()
-                ?: return@launch
-            if (holder.bindToken == token) holder.icon.setImageBitmap(bitmap)
+
+        when (cell) {
+            HomeCell.Empty -> Unit // dock has no empties
+            is HomeCell.App -> {
+                holder.itemView.setOnClickListener { onLaunch(cell.key) }
+                holder.itemView.setOnLongClickListener { onIconLongPress(holder.itemView, cell.id); true }
+                scope.launch {
+                    val bmp = runCatching { iconLoader.bitmap(IconRef.System(cell.key), iconSizePx) }.getOrNull()
+                        ?: return@launch
+                    if (holder.bindToken == token) holder.icon.setImageBitmap(bmp)
+                }
+            }
+            is HomeCell.Folder -> {
+                holder.itemView.setOnClickListener { onOpenFolder(cell.id) }
+                holder.itemView.setOnLongClickListener { onIconLongPress(holder.itemView, cell.id); true }
+                scope.launch {
+                    val bmp = runCatching { folderRenderer.render(cell.members, iconSizePx) }.getOrNull()
+                        ?: return@launch
+                    if (holder.bindToken == token) holder.icon.setImageBitmap(bmp)
+                }
+            }
         }
     }
 

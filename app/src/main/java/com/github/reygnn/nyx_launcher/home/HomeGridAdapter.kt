@@ -6,20 +6,23 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.recyclerview.widget.RecyclerView
 import com.github.reygnn.nyx_launcher.R
+import com.github.reygnn.nyx_launcher.data.icon.FolderIconRenderer
 import com.github.reygnn.nyx_launcher.data.icon.IconLoader
 import com.github.reygnn.nyx_launcher.home.model.ComponentKey
+import com.github.reygnn.nyx_launcher.home.model.IconRef
 import com.github.reygnn.nyx_launcher.home.model.ItemId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * Renders one page of [HomeCell]s. Tap an app launches it; long-press an icon
- * begins a drag (id as local state); empty cells stay non-long-clickable so the
- * gesture falls through to the page's long-press (opens the drawer). Async icons
- * are gated by a per-holder token (ICL-INV-9).
+ * Renders one page of [HomeCell]s. Apps show their icon and launch on tap;
+ * folders show the 2×2 composite and open on tap. Long-press an icon begins a
+ * drag; empty cells fall through to the page's long-press (opens the drawer).
+ * Async images are gated by a per-holder token (ICL-INV-9).
  */
 class HomeGridAdapter(
     private val iconLoader: IconLoader,
+    private val folderRenderer: FolderIconRenderer,
     private val scope: CoroutineScope,
     private val iconSizePx: Int,
     private val onLaunch: (ComponentKey) -> Unit,
@@ -50,22 +53,25 @@ class HomeGridAdapter(
             HomeCell.Empty -> {
                 holder.itemView.setOnClickListener(null)
                 holder.itemView.setOnLongClickListener(null)
-                holder.itemView.isLongClickable = false
                 holder.itemView.isClickable = false
+                holder.itemView.isLongClickable = false
             }
-            is HomeCell.Icon -> {
-                holder.itemView.setOnClickListener {
-                    val launch = cell.launch
-                    if (launch != null) onLaunch(launch) else onOpenFolder(cell.id)
-                }
-                holder.itemView.setOnLongClickListener {
-                    onIconLongPress(holder.itemView, cell.id)
-                    true
-                }
+            is HomeCell.App -> {
+                holder.itemView.setOnClickListener { onLaunch(cell.key) }
+                holder.itemView.setOnLongClickListener { onIconLongPress(holder.itemView, cell.id); true }
                 scope.launch {
-                    val bitmap = runCatching { iconLoader.bitmap(cell.ref, iconSizePx) }.getOrNull()
+                    val bmp = runCatching { iconLoader.bitmap(IconRef.System(cell.key), iconSizePx) }.getOrNull()
                         ?: return@launch
-                    if (holder.bindToken == token) holder.icon.setImageBitmap(bitmap)
+                    if (holder.bindToken == token) holder.icon.setImageBitmap(bmp)
+                }
+            }
+            is HomeCell.Folder -> {
+                holder.itemView.setOnClickListener { onOpenFolder(cell.id) }
+                holder.itemView.setOnLongClickListener { onIconLongPress(holder.itemView, cell.id); true }
+                scope.launch {
+                    val bmp = runCatching { folderRenderer.render(cell.members, iconSizePx) }.getOrNull()
+                        ?: return@launch
+                    if (holder.bindToken == token) holder.icon.setImageBitmap(bmp)
                 }
             }
         }

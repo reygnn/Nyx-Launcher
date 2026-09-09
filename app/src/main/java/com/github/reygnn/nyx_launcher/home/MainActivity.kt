@@ -5,9 +5,12 @@ import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
 import android.view.DragEvent
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import android.widget.EditText
 import android.widget.TextView
+import androidx.activity.addCallback
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
@@ -19,38 +22,46 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import com.github.reygnn.nyx_launcher.R
+import com.github.reygnn.nyx_launcher.data.icon.FolderIconRenderer
 import com.github.reygnn.nyx_launcher.data.icon.IconLoader
-import com.github.reygnn.nyx_launcher.home.drawer.AppDrawerActivity
+import com.github.reygnn.nyx_launcher.home.drawer.AppDrawerAdapter
 import com.github.reygnn.nyx_launcher.home.model.CellPos
 import com.github.reygnn.nyx_launcher.home.model.ComponentKey
 import com.github.reygnn.nyx_launcher.home.model.DropTarget
-import com.github.reygnn.nyx_launcher.home.model.firstFreeCell
 import com.github.reygnn.nyx_launcher.home.model.HomeItem
 import com.github.reygnn.nyx_launcher.home.model.HomeLayout
 import com.github.reygnn.nyx_launcher.home.model.ItemId
+import com.github.reygnn.nyx_launcher.home.model.firstFreeCell
+import com.github.reygnn.nyx_launcher.settings.SettingsActivity
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.abs
 
 /**
- * The launcher home: a [ViewPager2] of grid pages + a persistent dock. Tap an
- * app launches; tap a folder opens a bottom sheet; long-press an icon drags;
- * dropping runs the tested transitions via [HomeViewModel]. Cross-page drag is a
- * later step.
+ * The launcher home: a [ViewPager2] of grid pages, a persistent dock, and a
+ * drawer panel that overlays the home (swipe up from the dock, or long-press the
+ * home). Tapping launches/opens; long-pressing drags. A drag started in the grid/
+ * dock carries the item's id (→ move); one started in the drawer carries a
+ * [DragPayload.NewApp] (→ place at the drop cell). Dropping on the remove bar
+ * removes; dropping a drawer app there is ignored.
  */
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     private val viewModel: HomeViewModel by viewModels()
 
-    @Inject
-    lateinit var iconLoader: IconLoader
+    @Inject lateinit var iconLoader: IconLoader
+    @Inject lateinit var folderRenderer: FolderIconRenderer
 
     private lateinit var pager: ViewPager2
     private lateinit var dock: RecyclerView
+    private lateinit var drawerPanel: RecyclerView
+    private lateinit var removeBar: TextView
     private var pagerAdapter: HomePagerAdapter? = null
     private lateinit var dockAdapter: DockAdapter
+    private lateinit var drawerAdapter: AppDrawerAdapter
 
     private var gridIconPx = 0
     private var dockSize = 0
@@ -61,15 +72,55 @@ class MainActivity : AppCompatActivity() {
 
         pager = findViewById(R.id.home_pager)
         dock = findViewById(R.id.dock)
+        drawerPanel = findViewById(R.id.drawer_panel)
+        removeBar = findViewById(R.id.remove_bar)
         gridIconPx = (48 * resources.displayMetrics.density).toInt()
 
-        dockAdapter = DockAdapter(iconLoader, lifecycleScope, gridIconPx, ::launchApp, ::openFolder, ::startDrag)
+        setupDock()
+        setupDrawerPanel()
+        setupRemoveBar()
+        setupSwipeUp()
+        onBackPressedDispatcher.addCallback(this) { if (drawerPanel.isVisible) hideDrawer() }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch { viewModel.layout.collect(::renderLayout) }
+                launch { viewModel.drawerApps.collect(drawerAdapter::submit) }
+            }
+        }
+    }
+
+    // ---- setup ----
+
+    private fun setupDock() {
+        dockAdapter = DockAdapter(iconLoader, folderRenderer, lifecycleScope, gridIconPx, ::launchApp, ::openFolder) { v, id ->
+            startDrag(v, DragPayload.Existing(id))
+        }
         dock.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         dock.adapter = dockAdapter
         dock.setOnDragListener { _, event -> handleDockDrag(event) }
+        dock.setOnLongClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java)); true
+        }
+    }
 
-        // Remove bar: visible only during a drag; drop an icon here to remove it.
-        val removeBar = findViewById<TextView>(R.id.remove_bar)
+    private fun setupDrawerPanel() {
+        drawerAdapter = AppDrawerAdapter(
+            iconLoader = iconLoader,
+            scope = lifecycleScope,
+            iconSizePx = (40 * resources.displayMetrics.density).toInt(),
+            onClick = { app -> launchApp(app.key); hideDrawer() },
+            onAddToHome = { }, // panel uses drag, not add-to-first-free-cell
+            onItemLongPress = { view, app ->
+                startDrag(view, DragPayload.NewApp(app.key))
+                hideDrawer()
+            },
+        )
+        drawerPanel.layoutManager = LinearLayoutManager(this)
+        drawerPanel.adapter = drawerAdapter
+    }
+
+    private fun setupRemoveBar() {
         findViewById<View>(R.id.home_root).setOnDragListener { _, event ->
             when (event.action) {
                 DragEvent.ACTION_DRAG_STARTED -> { removeBar.isVisible = true; true }
@@ -79,61 +130,94 @@ class MainActivity : AppCompatActivity() {
         }
         removeBar.setOnDragListener { _, event ->
             if (event.action == DragEvent.ACTION_DROP) {
-                (event.localState as? ItemId)?.let(viewModel::remove)
+                (event.localState as? DragPayload.Existing)?.let { viewModel.remove(it.id) }
                 true
             } else {
                 true
             }
         }
+    }
 
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.layout.collect { layout ->
-                    layout ?: return@collect
-                    dockSize = layout.dock.size
-
-                    if (pagerAdapter == null) {
-                        pagerAdapter = HomePagerAdapter(
-                            iconLoader = iconLoader,
-                            scope = lifecycleScope,
-                            iconSizePx = gridIconPx,
-                            columns = layout.grid.columns,
-                            onLaunch = ::launchApp,
-                            onOpenFolder = ::openFolder,
-                            onStartDrag = ::startDrag,
-                            onOpenDrawer = ::openDrawer,
-                            onDropOnPage = ::dropOnPage,
-                        ).also { pager.adapter = it }
-                    }
-                    val currentPage = pager.currentItem
-                    pagerAdapter?.submit((0 until layout.pages).map(layout::pageCells))
-                    if (currentPage < layout.pages) pager.setCurrentItem(currentPage, false)
-                    dockAdapter.submit(layout.dockCells())
-                }
+    private fun setupSwipeUp() {
+        val detector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
+                if (vy < -1500f && abs(vy) > abs(vx)) { showDrawer(); return true }
+                return false
             }
+        })
+        dock.setOnTouchListener { _, ev -> detector.onTouchEvent(ev); false }
+    }
+
+    // ---- rendering ----
+
+    private fun renderLayout(layout: HomeLayout?) {
+        layout ?: return
+        dockSize = layout.dock.size
+        if (pagerAdapter == null) {
+            pagerAdapter = HomePagerAdapter(
+                iconLoader = iconLoader,
+                folderRenderer = folderRenderer,
+                scope = lifecycleScope,
+                iconSizePx = gridIconPx,
+                columns = layout.grid.columns,
+                onLaunch = ::launchApp,
+                onOpenFolder = ::openFolder,
+                onStartDrag = { v, id -> startDrag(v, DragPayload.Existing(id)) },
+                onOpenDrawer = ::showDrawer,
+                onDropOnPage = ::dropOnPage,
+            ).also { pager.adapter = it }
         }
+        val currentPage = pager.currentItem
+        pagerAdapter?.submit((0 until layout.pages).map(layout::pageCells))
+        if (currentPage < layout.pages) pager.setCurrentItem(currentPage, false)
+        dockAdapter.submit(layout.dockCells())
     }
 
-    private fun startDrag(view: View, id: ItemId) {
-        view.startDragAndDrop(null, View.DragShadowBuilder(view), id, 0)
+    // ---- drawer panel ----
+
+    private fun showDrawer() {
+        if (drawerPanel.isVisible) return
+        drawerPanel.alpha = 0f
+        drawerPanel.isVisible = true
+        drawerPanel.animate().alpha(1f).setDuration(160).start()
     }
 
-    private fun dropOnPage(page: Int, cellIndex: Int, id: ItemId) {
-        val columns = currentColumns()
-        viewModel.move(id, DropTarget.Cell(CellPos(page, cellIndex % columns, cellIndex / columns)))
+    private fun hideDrawer() {
+        if (!drawerPanel.isVisible) return
+        drawerPanel.animate().alpha(0f).setDuration(140).withEndAction {
+            drawerPanel.isVisible = false
+        }.start()
+    }
+
+    // ---- drag ----
+
+    private fun startDrag(view: View, payload: DragPayload) {
+        view.startDragAndDrop(null, View.DragShadowBuilder(view), payload, 0)
+    }
+
+    private fun dropOnPage(page: Int, cellIndex: Int, payload: DragPayload) {
+        val cols = currentColumns()
+        val target = DropTarget.Cell(CellPos(page, cellIndex % cols, cellIndex / cols))
+        applyDrop(payload, target)
     }
 
     private fun handleDockDrag(event: DragEvent): Boolean = when (event.action) {
         DragEvent.ACTION_DROP -> {
-            val id = event.localState as? ItemId
+            val payload = event.localState as? DragPayload
             val child = dock.findChildViewUnder(event.x, event.y)
-            val slot = child?.let(dock::getChildAdapterPosition)?.takeIf { it != RecyclerView.NO_POSITION }
-                ?: dockSize
-            if (id != null) viewModel.move(id, DropTarget.DockSlot(slot))
+            val slot = child?.let(dock::getChildAdapterPosition)?.takeIf { it != RecyclerView.NO_POSITION } ?: dockSize
+            if (payload != null) applyDrop(payload, DropTarget.DockSlot(slot))
             true
         }
         else -> true
     }
+
+    private fun applyDrop(payload: DragPayload, target: DropTarget) = when (payload) {
+        is DragPayload.Existing -> viewModel.move(payload.id, target)
+        is DragPayload.NewApp -> viewModel.place(payload.key, target)
+    }
+
+    // ---- folder sheet ----
 
     private fun openFolder(folderId: ItemId) {
         val layout = viewModel.layout.value ?: return
@@ -163,12 +247,9 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
+    // ---- helpers ----
 
     private fun currentColumns(): Int = viewModel.layout.value?.grid?.columns ?: 1
-
-    private fun openDrawer() {
-        startActivity(Intent(this, AppDrawerActivity::class.java))
-    }
 
     private fun launchApp(key: ComponentKey) {
         val intent = Intent(Intent.ACTION_MAIN)

@@ -26,7 +26,20 @@
 
     </LinearLayout>
 
-    <!-- Shown only during a drag; drop an icon here to remove it from the home. -->
+    <!-- Drawer panel: overlays the home, revealed by swipe-up / long-press. -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/drawer_panel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#F20B0B12"
+        android:clickable="true"
+        android:focusable="true"
+        android:clipToPadding="false"
+        android:paddingTop="32dp"
+        android:paddingBottom="32dp"
+        android:visibility="gone" />
+
+    <!-- Shown only during a drag; drop an existing icon here to remove it. -->
     <TextView
         android:id="@+id/remove_bar"
         android:layout_width="match_parent"

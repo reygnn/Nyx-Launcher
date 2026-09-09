@@ -5,7 +5,6 @@ import com.github.reygnn.nyx_launcher.home.model.HomeLayout
 import com.github.reygnn.nyx_launcher.home.repository.HomeLayoutRepository
 import com.github.reygnn.nyx_launcher.home.repository.HomeLayoutRepositoryContract
 import kotlinx.coroutines.runBlocking
-
 /**
  * The impl half of the triple (CLAUDE.md rule 2). Runs the SAME
  * `HomeLayoutRepositoryContract` as the fake; if the real DataStore-backed impl
@@ -18,7 +17,7 @@ import kotlinx.coroutines.runBlocking
 class HomeLayoutRepositoryImplContractTest : HomeLayoutRepositoryContract() {
 
     override fun createRepository(initial: HomeLayout): HomeLayoutRepository {
-        val repository = HomeLayoutRepositoryImpl(FakeDataStore())
+        val repository = HomeLayoutRepositoryImpl(FakeDataStore(), HomeLayoutSerializer())
         runBlocking { repository.save(initial) }
         return repository
     }

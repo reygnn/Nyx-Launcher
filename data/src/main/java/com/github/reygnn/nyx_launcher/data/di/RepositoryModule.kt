@@ -1,10 +1,12 @@
 package com.github.reygnn.nyx_launcher.data.di
 
 import com.github.reygnn.nyx_launcher.data.home.HomeLayoutRepositoryImpl
+import com.github.reygnn.nyx_launcher.data.home.HomeLayoutSerializer
 import com.github.reygnn.nyx_launcher.data.home.InstalledAppsRepositoryImpl
 import com.github.reygnn.nyx_launcher.data.home.UuidItemIdFactory
 import com.github.reygnn.nyx_launcher.home.model.ItemIdFactory
 import com.github.reygnn.nyx_launcher.home.repository.HomeLayoutRepository
+import com.github.reygnn.nyx_launcher.home.repository.LayoutSerializer
 import com.github.reygnn.nyx_launcher.home.repository.InstalledAppsRepository
 import dagger.Binds
 import dagger.Module
@@ -20,6 +22,9 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindHomeLayoutRepository(impl: HomeLayoutRepositoryImpl): HomeLayoutRepository
+
+    @Binds
+    abstract fun bindLayoutSerializer(impl: HomeLayoutSerializer): LayoutSerializer
 
     @Binds
     @Singleton

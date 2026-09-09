@@ -5,6 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.github.reygnn.nyx_launcher.data.icon.FolderIconRenderer
 import com.github.reygnn.nyx_launcher.data.icon.IconLoader
 import com.github.reygnn.nyx_launcher.home.model.ComponentKey
 import com.github.reygnn.nyx_launcher.home.model.ItemId
@@ -17,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
  */
 class HomePagerAdapter(
     private val iconLoader: IconLoader,
+    private val folderRenderer: FolderIconRenderer,
     private val scope: CoroutineScope,
     private val iconSizePx: Int,
     private val columns: Int,
@@ -24,7 +26,7 @@ class HomePagerAdapter(
     private val onOpenFolder: (id: ItemId) -> Unit,
     private val onStartDrag: (View, ItemId) -> Unit,
     private val onOpenDrawer: () -> Unit,
-    private val onDropOnPage: (page: Int, cellIndex: Int, id: ItemId) -> Unit,
+    private val onDropOnPage: (page: Int, cellIndex: Int, payload: DragPayload) -> Unit,
 ) : RecyclerView.Adapter<HomePagerAdapter.PageHolder>() {
 
     private var pages: List<List<HomeCell>> = emptyList()
@@ -43,7 +45,7 @@ class HomePagerAdapter(
             layoutManager = GridLayoutManager(context, columns)
             clipToPadding = false
         }
-        val gridAdapter = HomeGridAdapter(iconLoader, scope, iconSizePx, onLaunch, onOpenFolder, onStartDrag)
+        val gridAdapter = HomeGridAdapter(iconLoader, folderRenderer, scope, iconSizePx, onLaunch, onOpenFolder, onStartDrag)
         recycler.adapter = gridAdapter
         return PageHolder(recycler, gridAdapter)
     }
@@ -59,11 +61,11 @@ class HomePagerAdapter(
         }
         holder.recycler.setOnDragListener { _, event ->
             if (event.action == DragEvent.ACTION_DROP) {
-                val id = event.localState as? ItemId
+                val payload = event.localState as? DragPayload
                 val child = holder.recycler.findChildViewUnder(event.x, event.y)
                 val index = child?.let(holder.recycler::getChildAdapterPosition) ?: RecyclerView.NO_POSITION
-                if (id != null && index != RecyclerView.NO_POSITION) {
-                    onDropOnPage(position, index, id)
+                if (payload != null && index != RecyclerView.NO_POSITION) {
+                    onDropOnPage(position, index, payload)
                 }
                 true
             } else {

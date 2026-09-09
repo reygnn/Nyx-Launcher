@@ -24,6 +24,7 @@ class AppDrawerAdapter(
     private val iconSizePx: Int,
     private val onClick: (LauncherApp) -> Unit,
     private val onAddToHome: (LauncherApp) -> Unit,
+    private val onItemLongPress: ((view: View, app: LauncherApp) -> Unit)? = null,
 ) : RecyclerView.Adapter<AppDrawerAdapter.AppHolder>() {
 
     private var apps: List<LauncherApp> = emptyList()
@@ -45,7 +46,11 @@ class AppDrawerAdapter(
         val app = apps[position]
         holder.label.text = app.customName ?: app.label
         holder.itemView.setOnClickListener { onClick(app) }
-        holder.itemView.setOnLongClickListener { onAddToHome(app); true }
+        holder.itemView.setOnLongClickListener {
+            val dragHandler = onItemLongPress
+            if (dragHandler != null) dragHandler(holder.itemView, app) else onAddToHome(app)
+            true
+        }
 
         val token = ++holder.bindToken
         holder.icon.setImageDrawable(null)
