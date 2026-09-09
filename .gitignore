@@ -148,8 +148,3 @@ test-reports/
 
 # ACRA library source (local reference only — see ACRA_FLOW.md §13)
 acra-source_5-13-1/
-
-
-# Local scratch / integrity-check artifacts (not part of the source tree)
-t.txt
-CHECKSUMS.sha256
