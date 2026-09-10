@@ -7,17 +7,40 @@ import android.graphics.RectF
 import com.github.reygnn.nyx_launcher.home.model.ComponentKey
 import com.github.reygnn.nyx_launcher.home.model.IconRef
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Renders a folder's derived 2×2 preview from up to four member icons on a faint
  * rounded background (IHM-INV-2: never stored as an IconRef). Member bitmaps come
- * from the shared [IconLoader] cache, so this composite is cheap; changing the
- * membership changes the members list and thus the preview automatically.
+ * from the shared [IconLoader] cache.
+ *
+ * A small count-bounded LRU caches the composed preview, keyed by the ordered
+ * members + size ([IconCacheKey.folder]), so it isn't redrawn on every bind.
+ * Changing membership changes the key (self-invalidating); a package update calls
+ * [clear] via the coordinator so a member's new icon isn't shown stale.
  */
+@Singleton
 class FolderIconRenderer @Inject constructor(
     private val iconLoader: IconLoader,
 ) {
+    private val lock = Any()
+    private val cache = object : LinkedHashMap<CacheKey, Bitmap>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<CacheKey, Bitmap>): Boolean =
+            size > MAX_ENTRIES
+    }
+
     suspend fun render(members: List<ComponentKey>, sizePx: Int): Bitmap {
+        val key = IconCacheKey.folder(members, sizePx)
+        synchronized(lock) { cache[key]?.let { return it } }
+        val composed = compose(members, sizePx)
+        synchronized(lock) { cache[key] = composed }
+        return composed
+    }
+
+    /** Drop all cached previews (on package change / memory trim). */
+    fun clear() = synchronized(lock) { cache.clear() }
+
+    private suspend fun compose(members: List<ComponentKey>, sizePx: Int): Bitmap {
         val out = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
 
@@ -37,5 +60,9 @@ class FolderIconRenderer @Inject constructor(
             canvas.drawBitmap(bitmap, left, top, null)
         }
         return out
+    }
+
+    private companion object {
+        const val MAX_ENTRIES = 64
     }
 }

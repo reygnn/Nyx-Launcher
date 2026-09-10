@@ -1,5 +1,6 @@
 package com.github.reygnn.nyx_launcher.data.icon
 
+import com.github.reygnn.nyx_launcher.home.model.ComponentKey
 import com.github.reygnn.nyx_launcher.home.model.IconRef
 import java.security.MessageDigest
 
@@ -31,6 +32,18 @@ object IconCacheKey {
 
     /** Prefix shared by every file of [pkg]; glob `"$prefix-*.webp"` on evict. */
     fun packagePrefix(pkg: String): String = shortHash(pkg)
+
+    /**
+     * Key for a folder's derived 2×2 preview — a function of the ordered members
+     * (order + which four appear drive the composite) and size. Changing the
+     * membership changes the key, so the preview invalidates itself.
+     */
+    fun folder(members: List<ComponentKey>, sizePx: Int): CacheKey {
+        val content = members.joinToString("|") {
+            "${it.packageName}/${it.className}/${it.userSerial}"
+        } + "@" + sizePx
+        return CacheKey("folder-${shortHash(content)}")
+    }
 
     private fun shortHash(input: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))

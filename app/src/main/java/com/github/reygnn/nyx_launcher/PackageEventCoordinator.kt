@@ -3,6 +3,7 @@ package com.github.reygnn.nyx_launcher
 import android.content.Context
 import android.content.pm.LauncherApps
 import android.os.UserHandle
+import com.github.reygnn.nyx_launcher.data.icon.FolderIconRenderer
 import com.github.reygnn.nyx_launcher.data.icon.IconLoader
 import com.github.reygnn.nyx_launcher.di.IoDispatcher
 import com.github.reygnn.nyx_launcher.home.usecase.ReconcileHomeLayoutUseCase
@@ -31,6 +32,7 @@ import javax.inject.Singleton
 class PackageEventCoordinator @Inject constructor(
     @ApplicationContext private val context: Context,
     private val iconLoader: IconLoader,
+    private val folderRenderer: FolderIconRenderer,
     private val reconcile: ReconcileHomeLayoutUseCase,
     @IoDispatcher private val dispatcher: CoroutineDispatcher,
 ) {
@@ -65,10 +67,14 @@ class PackageEventCoordinator @Inject constructor(
         scope.launch { reconcile() } // cold-start catch-up
     }
 
-    fun onTrimMemory(level: Int) = iconLoader.trim(level)
+    fun onTrimMemory(level: Int) {
+        iconLoader.trim(level)
+        folderRenderer.clear()
+    }
 
     private fun onChanged(packageName: String) {
         iconLoader.evict(packageName)
+        folderRenderer.clear() // a member's icon may have changed
         scope.launch { reconcile() }
     }
 }
