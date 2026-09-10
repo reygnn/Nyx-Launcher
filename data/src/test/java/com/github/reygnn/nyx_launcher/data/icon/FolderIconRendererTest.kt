@@ -3,6 +3,7 @@ package com.github.reygnn.nyx_launcher.data.icon
 import android.graphics.Bitmap
 import com.github.reygnn.nyx_launcher.home.model.ComponentKey
 import com.github.reygnn.nyx_launcher.home.model.IconRef
+import com.github.reygnn.nyx_launcher.home.repository.FakePreferencesRepository
 import com.github.reygnn.nyx_launcher.testing.MainDispatcherRule
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
@@ -34,7 +35,7 @@ class FolderIconRendererTest {
     @Test
     fun second_render_of_same_folder_is_cached() = runTest(mainDispatcherRule.dispatcher) {
         val loader = CountingIconLoader()
-        val renderer = FolderIconRenderer(loader)
+        val renderer = FolderIconRenderer(loader, mainDispatcherRule.dispatcher, FakePreferencesRepository())
 
         renderer.render(members, 96)
         val afterFirst = loader.calls // two members composed
@@ -47,7 +48,7 @@ class FolderIconRendererTest {
     @Test
     fun clear_forces_a_recompose() = runTest(mainDispatcherRule.dispatcher) {
         val loader = CountingIconLoader()
-        val renderer = FolderIconRenderer(loader)
+        val renderer = FolderIconRenderer(loader, mainDispatcherRule.dispatcher, FakePreferencesRepository())
 
         renderer.render(members, 96)
         renderer.clear()

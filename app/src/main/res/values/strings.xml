@@ -4,6 +4,7 @@
     <string name="folder_default_title">Folder</string>
     <string name="remove_from_home">Remove from home</string>
     <string name="settings_backup_title">Backup &amp; restore</string>
+    <string name="monochrome_icons">Monochrome icons</string>
     <string name="backup_export">Export layout</string>
     <string name="backup_import">Import layout</string>
     <string name="backup_export_done">Layout exported</string>

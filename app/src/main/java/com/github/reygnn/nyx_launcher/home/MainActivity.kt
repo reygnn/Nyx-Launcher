@@ -86,6 +86,7 @@ class MainActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { viewModel.layout.collect(::renderLayout) }
                 launch { viewModel.drawerApps.collect(drawerAdapter::submit) }
+                launch { viewModel.monochromeIcons.collect { renderLayout(viewModel.layout.value) } }
             }
         }
     }

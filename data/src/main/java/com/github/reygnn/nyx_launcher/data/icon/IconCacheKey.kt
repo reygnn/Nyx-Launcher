@@ -38,10 +38,10 @@ object IconCacheKey {
      * (order + which four appear drive the composite) and size. Changing the
      * membership changes the key, so the preview invalidates itself.
      */
-    fun folder(members: List<ComponentKey>, sizePx: Int): CacheKey {
+    fun folder(members: List<ComponentKey>, sizePx: Int, monochrome: Boolean): CacheKey {
         val content = members.joinToString("|") {
             "${it.packageName}/${it.className}/${it.userSerial}"
-        } + "@" + sizePx
+        } + "@" + sizePx + if (monochrome) "#mono" else ""
         return CacheKey("folder-${shortHash(content)}")
     }
 

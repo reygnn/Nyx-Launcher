@@ -7,6 +7,7 @@ import com.github.reygnn.nyx_launcher.home.model.DropTarget
 import com.github.reygnn.nyx_launcher.home.model.HomeLayout
 import com.github.reygnn.nyx_launcher.home.model.ItemId
 import com.github.reygnn.nyx_launcher.home.model.LauncherApp
+import com.github.reygnn.nyx_launcher.home.repository.PreferencesRepository
 import com.github.reygnn.nyx_launcher.home.usecase.GetDrawerAppsUseCase
 import com.github.reygnn.nyx_launcher.home.usecase.MoveItemUseCase
 import com.github.reygnn.nyx_launcher.home.usecase.ObserveHomeLayoutUseCase
@@ -37,10 +38,14 @@ class HomeViewModel @Inject constructor(
     private val removeFromFolder: RemoveFromFolderUseCase,
     private val removeItem: RemoveItemUseCase,
     private val renameFolderUseCase: RenameFolderUseCase,
+    preferences: PreferencesRepository,
 ) : ViewModel() {
 
     val layout: StateFlow<HomeLayout?> = observeHomeLayout()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val monochromeIcons: StateFlow<Boolean> = preferences.monochromeIcons()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     private val _drawerApps = MutableStateFlow<List<LauncherApp>>(emptyList())
     val drawerApps: StateFlow<List<LauncherApp>> = _drawerApps.asStateFlow()

@@ -4,8 +4,15 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import com.github.reygnn.nyx_launcher.di.IoDispatcher
 import com.github.reygnn.nyx_launcher.home.model.ComponentKey
 import com.github.reygnn.nyx_launcher.home.model.IconRef
+import com.github.reygnn.nyx_launcher.home.repository.PreferencesRepository
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,7 +29,17 @@ import javax.inject.Singleton
 @Singleton
 class FolderIconRenderer @Inject constructor(
     private val iconLoader: IconLoader,
+    @IoDispatcher dispatcher: CoroutineDispatcher,
+    preferences: PreferencesRepository,
 ) {
+    @Volatile
+    private var monochrome = false
+
+    init {
+        preferences.monochromeIcons()
+            .onEach { monochrome = it }
+            .launchIn(CoroutineScope(SupervisorJob() + dispatcher))
+    }
     private val lock = Any()
     private val cache = object : LinkedHashMap<CacheKey, Bitmap>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<CacheKey, Bitmap>): Boolean =
@@ -30,7 +47,7 @@ class FolderIconRenderer @Inject constructor(
     }
 
     suspend fun render(members: List<ComponentKey>, sizePx: Int): Bitmap {
-        val key = IconCacheKey.folder(members, sizePx)
+        val key = IconCacheKey.folder(members, sizePx, monochrome)
         synchronized(lock) { cache[key]?.let { return it } }
         val composed = compose(members, sizePx)
         synchronized(lock) { cache[key] = composed }

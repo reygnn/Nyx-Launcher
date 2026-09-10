@@ -3,13 +3,17 @@ package com.github.reygnn.nyx_launcher.settings
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
+import android.widget.Switch
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.github.reygnn.nyx_launcher.R
 import com.github.reygnn.nyx_launcher.home.model.ImportResult
 import com.github.reygnn.nyx_launcher.home.usecase.ExportLayoutUseCase
+import com.github.reygnn.nyx_launcher.home.repository.PreferencesRepository
 import com.github.reygnn.nyx_launcher.home.usecase.ImportLayoutUseCase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +35,9 @@ class SettingsActivity : AppCompatActivity() {
     @Inject
     lateinit var importLayout: ImportLayoutUseCase
 
+    @Inject
+    lateinit var preferences: PreferencesRepository
+
     private val createDocument =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
             uri?.let(::doExport)
@@ -49,6 +56,18 @@ class SettingsActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.import_button).setOnClickListener {
             openDocument.launch(arrayOf("application/json", "*/*"))
+        }
+
+        val monochrome = findViewById<Switch>(R.id.monochrome_switch)
+        monochrome.setOnCheckedChangeListener { _, checked ->
+            lifecycleScope.launch { preferences.setMonochromeIcons(checked) }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                preferences.monochromeIcons().collect { enabled ->
+                    if (monochrome.isChecked != enabled) monochrome.isChecked = enabled
+                }
+            }
         }
     }
 
