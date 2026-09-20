@@ -20,6 +20,23 @@ It shares its architecture and conventions with its sister project
 module split, Hilt for DI, Coroutines/Flow for async, and a JVM-first test
 suite.
 
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="screenshots/home.png" width="280" alt="Nyx home screen — clock, dock and icon grid"><br>
+      <sub>Home — clock, dock and icon grid</sub>
+    </td>
+    <td align="center">
+      <img src="screenshots/drawer.png" width="280" alt="Nyx app drawer — instant search and folders"><br>
+      <sub>App drawer — instant search and folders</sub>
+    </td>
+  </tr>
+</table>
+
+<sub>First run, fresh install (Android 16).</sub>
+
 ## Source
 
 Nyx's source lives in the
