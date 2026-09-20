@@ -25,12 +25,16 @@ suite.
 <table>
   <tr>
     <td align="center">
-      <img src="screenshots/home.png" width="280" alt="Nyx home screen — clock, dock and icon grid"><br>
+      <img src="screenshots/home.png" width="240" alt="Nyx home screen — clock, dock and icon grid"><br>
       <sub>Home — clock, dock and icon grid</sub>
     </td>
     <td align="center">
-      <img src="screenshots/drawer.png" width="280" alt="Nyx app drawer — instant search and folders"><br>
+      <img src="screenshots/drawer.png" width="240" alt="Nyx app drawer — instant search and folders"><br>
       <sub>App drawer — instant search and folders</sub>
+    </td>
+    <td align="center">
+      <img src="screenshots/settings.png" width="240" alt="Nyx settings — icon style, notification dots and more"><br>
+      <sub>Settings — icon style, notification dots &amp; more</sub>
     </td>
   </tr>
 </table>
